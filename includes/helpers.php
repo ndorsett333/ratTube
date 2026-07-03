@@ -96,16 +96,14 @@ function rattube_get_rat_media_capability_names(): array {
 function rattube_grant_rat_media_capabilities(): void {
     $capabilities = rattube_get_rat_media_capability_names();
 
-    foreach ( array( 'administrator', 'editor' ) as $role_name ) {
-        $role = get_role( $role_name );
+    $role = get_role( 'administrator' );
 
-        if ( ! $role instanceof WP_Role ) {
-            continue;
-        }
+    if ( ! $role instanceof WP_Role ) {
+        return;
+    }
 
-        foreach ( $capabilities as $capability ) {
-            $role->add_cap( $capability );
-        }
+    foreach ( $capabilities as $capability ) {
+        $role->add_cap( $capability );
     }
 }
 

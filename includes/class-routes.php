@@ -19,6 +19,7 @@ class RATTube_Routes {
      */
     public function register_hooks(): void {
         add_action( 'init', array( $this, 'register_shortcodes' ) );
+        add_action( 'template_redirect', array( $this, 'protect_converter_page' ) );
         add_action( 'admin_post_rattube_submit_converter', array( $this, 'handle_converter_submission' ) );
         add_action( 'admin_post_nopriv_rattube_submit_converter', array( $this, 'handle_converter_submission' ) );
     }
@@ -38,6 +39,10 @@ class RATTube_Routes {
      * @return string
      */
     public function render_converter_shortcode(): string {
+        if ( ! $this->current_user_can_access_converter() ) {
+            return '';
+        }
+
         $notice  = $this->get_notice_from_request();
         $formats = rattube_get_allowed_output_formats();
 
@@ -52,6 +57,10 @@ class RATTube_Routes {
      * @return void
      */
     public function handle_converter_submission(): void {
+        if ( ! $this->current_user_can_access_converter() ) {
+            wp_die( esc_html__( 'You do not have permission to submit to the RatTube converter.', 'rattube' ), '', array( 'response' => 403 ) );
+        }
+
         if ( ! isset( $_POST['rattube_nonce'] ) || ! wp_verify_nonce( sanitize_text_field( wp_unslash( $_POST['rattube_nonce'] ) ), 'rattube_submit_converter' ) ) {
             rattube_add_admin_log( __( 'Converter submission rejected due to invalid nonce.', 'rattube' ), 'warning' );
             $this->redirect_with_notice( 'invalid_nonce', 'error' );
@@ -153,6 +162,30 @@ class RATTube_Routes {
         if ( ! is_wp_error( $post_id ) ) {
             update_option( 'rattube_converter_page_id', (int) $post_id, false );
         }
+    }
+
+    /**
+     * Protects the converter page from non-admin access.
+     *
+     * @return void
+     */
+    public function protect_converter_page(): void {
+        $page_id = (int) get_option( 'rattube_converter_page_id', 0 );
+
+        if ( $page_id <= 0 || ! is_page( $page_id ) || $this->current_user_can_access_converter() ) {
+            return;
+        }
+
+        wp_die( esc_html__( 'You do not have permission to access this page.', 'rattube' ), '', array( 'response' => 404 ) );
+    }
+
+    /**
+     * Determines whether the current user can access the converter.
+     *
+     * @return bool
+     */
+    private function current_user_can_access_converter(): bool {
+        return is_user_logged_in() && current_user_can( 'manage_options' );
     }
 
     /**
