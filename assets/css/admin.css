@@ -1,0 +1,8 @@
+.rattube-log-table {
+    margin-top: 0.75rem;
+}
+
+.rattube-log-table td,
+.rattube-log-table th {
+    vertical-align: top;
+}

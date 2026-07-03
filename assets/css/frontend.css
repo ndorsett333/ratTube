@@ -1,0 +1,40 @@
+.rattube-converter {
+    max-width: 720px;
+    margin: 2rem auto;
+    padding: 1.25rem;
+    border: 1px solid #dcdcde;
+    border-radius: 8px;
+    background: #fff;
+}
+
+.rattube-form p {
+    margin: 0 0 1rem;
+}
+
+.rattube-form label {
+    display: block;
+    font-weight: 600;
+    margin-bottom: 0.35rem;
+}
+
+.rattube-form input,
+.rattube-form select {
+    width: 100%;
+    max-width: 100%;
+}
+
+.rattube-notice {
+    margin-bottom: 1rem;
+    padding: 0.75rem 0.9rem;
+    border-radius: 6px;
+}
+
+.rattube-notice--success {
+    background: #ecf9f1;
+    border: 1px solid #8ad0a4;
+}
+
+.rattube-notice--error {
+    background: #fff1f1;
+    border: 1px solid #eca3a3;
+}

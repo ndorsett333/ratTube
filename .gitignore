@@ -1,0 +1,37 @@
+# OS and editor
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# Logs and temp
+*.log
+*.tmp
+*.temp
+
+# Node/build artifacts (if introduced later)
+node_modules/
+dist/
+build/
+coverage/
+
+# Composer/PHP dev artifacts
+vendor/
+composer.lock
+phpcs.xml.cache
+.phpunit.result.cache
+
+# Archives and backups
+*.zip
+*.tar
+*.tar.gz
+*.bak
+
+# Environment and secrets
+.env
+.env.*
+
+# Ignore local prompt/spec docs
+wordpress-plugin-foundation-prompt.md
