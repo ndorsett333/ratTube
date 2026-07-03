@@ -27,6 +27,12 @@ defined( 'ABSPATH' ) || exit;
         </p>
 
         <p>
+            <label for="rattube_media_name"><?php esc_html_e( 'Name (optional)', 'rattube' ); ?></label>
+            <input id="rattube_media_name" name="rattube_media_name" type="text" maxlength="180" placeholder="My preferred file and post name" />
+            <small><?php esc_html_e( 'If left empty, RatTube will use the source video title when available.', 'rattube' ); ?></small>
+        </p>
+
+        <p>
             <label for="rattube_output_format"><?php esc_html_e( 'Output Format', 'rattube' ); ?></label>
             <select id="rattube_output_format" name="rattube_output_format" required="required">
                 <option value=""><?php esc_html_e( 'Select a format', 'rattube' ); ?></option>

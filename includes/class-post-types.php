@@ -128,6 +128,42 @@ class RATTube_Post_Types {
                 'auth_callback'     => array( $this, 'meta_auth_callback' ),
             )
         );
+
+        register_post_meta(
+            'rat_media',
+            '_rattube_requested_name',
+            array(
+                'type'              => 'string',
+                'single'            => true,
+                'show_in_rest'      => true,
+                'sanitize_callback' => array( $this, 'sanitize_text_value' ),
+                'auth_callback'     => array( $this, 'meta_auth_callback' ),
+            )
+        );
+
+        register_post_meta(
+            'rat_media',
+            '_rattube_resolved_name',
+            array(
+                'type'              => 'string',
+                'single'            => true,
+                'show_in_rest'      => true,
+                'sanitize_callback' => array( $this, 'sanitize_text_value' ),
+                'auth_callback'     => array( $this, 'meta_auth_callback' ),
+            )
+        );
+
+        register_post_meta(
+            'rat_media',
+            '_rattube_output_basename',
+            array(
+                'type'              => 'string',
+                'single'            => true,
+                'show_in_rest'      => true,
+                'sanitize_callback' => array( $this, 'sanitize_output_basename' ),
+                'auth_callback'     => array( $this, 'meta_auth_callback' ),
+            )
+        );
     }
 
     /**
@@ -177,6 +213,29 @@ class RATTube_Post_Types {
      */
     public function sanitize_attachment_id( $value ): int {
         return absint( $value );
+    }
+
+    /**
+     * Sanitizes plain text values.
+     *
+     * @param mixed $value Meta value.
+     *
+     * @return string
+     */
+    public function sanitize_text_value( $value ): string {
+        return sanitize_text_field( (string) $value );
+    }
+
+    /**
+     * Sanitizes output basename.
+     *
+     * @param mixed $value Meta value.
+     *
+     * @return string
+     */
+    public function sanitize_output_basename( $value ): string {
+        $basename = sanitize_file_name( (string) $value );
+        return (string) pathinfo( $basename, PATHINFO_FILENAME );
     }
 
     /**

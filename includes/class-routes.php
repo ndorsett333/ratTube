@@ -67,7 +67,9 @@ class RATTube_Routes {
         }
 
         $source_url = isset( $_POST['rattube_source_url'] ) ? esc_url_raw( wp_unslash( $_POST['rattube_source_url'] ) ) : '';
+        $name_raw   = isset( $_POST['rattube_media_name'] ) ? sanitize_text_field( wp_unslash( $_POST['rattube_media_name'] ) ) : '';
         $format_raw = isset( $_POST['rattube_output_format'] ) ? sanitize_text_field( wp_unslash( $_POST['rattube_output_format'] ) ) : '';
+        $name       = trim( $name_raw );
         $format     = rattube_sanitize_output_format( $format_raw );
 
         if ( empty( $source_url ) || ! wp_http_validate_url( $source_url ) ) {
@@ -80,16 +82,12 @@ class RATTube_Routes {
             $this->redirect_with_notice( 'invalid_format', 'error' );
         }
 
-        $post_title = sprintf(
-            /* translators: %s: source host name. */
-            __( 'Rat Media submission from %s', 'rattube' ),
-            wp_parse_url( $source_url, PHP_URL_HOST ) ?: __( 'unknown source', 'rattube' )
-        );
+        $resolved_name = $this->resolve_submission_name( $source_url, $name );
 
         $post_id = wp_insert_post(
             array(
                 'post_type'   => 'rat_media',
-                'post_title'  => sanitize_text_field( $post_title ),
+                'post_title'  => sanitize_text_field( $resolved_name ),
                 'post_status' => 'draft',
                 'post_content'=> '',
             ),
@@ -105,6 +103,14 @@ class RATTube_Routes {
         update_post_meta( $post_id, '_rattube_output_format', $format );
         update_post_meta( $post_id, '_rattube_status', 'submitted' );
         update_post_meta( $post_id, '_rattube_file_attachment_id', 0 );
+        update_post_meta( $post_id, '_rattube_requested_name', $name );
+        update_post_meta( $post_id, '_rattube_resolved_name', $resolved_name );
+
+        $output_basename = (string) pathinfo( sanitize_file_name( $resolved_name ), PATHINFO_FILENAME );
+        if ( '' === $output_basename ) {
+            $output_basename = 'rat-media-' . (int) $post_id;
+        }
+        update_post_meta( $post_id, '_rattube_output_basename', $output_basename );
 
         /**
          * Fires when a valid converter submission is created.
@@ -118,6 +124,8 @@ class RATTube_Routes {
             array(
                 'source_url'    => $source_url,
                 'output_format' => $format,
+                'resolved_name' => $resolved_name,
+                'output_basename' => $output_basename,
             )
         );
 
@@ -186,6 +194,78 @@ class RATTube_Routes {
      */
     private function current_user_can_access_converter(): bool {
         return is_user_logged_in() && current_user_can( 'manage_options' );
+    }
+
+    /**
+     * Resolves submission title and output name.
+     *
+     * @param string $source_url Source URL.
+     * @param string $name       User-provided name.
+     *
+     * @return string
+     */
+    private function resolve_submission_name( string $source_url, string $name ): string {
+        if ( '' !== $name ) {
+            return $name;
+        }
+
+        $source_title = $this->get_source_title( $source_url );
+        if ( '' !== $source_title ) {
+            return $source_title;
+        }
+
+        $host = wp_parse_url( $source_url, PHP_URL_HOST );
+
+        return sprintf(
+            /* translators: %s: source host name. */
+            __( 'Rat Media submission from %s', 'rattube' ),
+            $host ?: __( 'unknown source', 'rattube' )
+        );
+    }
+
+    /**
+     * Attempts to fetch a source title for known providers.
+     *
+     * @param string $source_url Source URL.
+     *
+     * @return string
+     */
+    private function get_source_title( string $source_url ): string {
+        $host = (string) wp_parse_url( $source_url, PHP_URL_HOST );
+        if ( false === strpos( $host, 'youtube.com' ) && false === strpos( $host, 'youtu.be' ) ) {
+            return '';
+        }
+
+        $endpoint = add_query_arg(
+            array(
+                'url'    => $source_url,
+                'format' => 'json',
+            ),
+            'https://www.youtube.com/oembed'
+        );
+
+        $response = wp_remote_get(
+            $endpoint,
+            array(
+                'timeout' => 10,
+            )
+        );
+
+        if ( is_wp_error( $response ) ) {
+            return '';
+        }
+
+        $status_code = (int) wp_remote_retrieve_response_code( $response );
+        if ( 200 !== $status_code ) {
+            return '';
+        }
+
+        $payload = json_decode( (string) wp_remote_retrieve_body( $response ), true );
+        if ( ! is_array( $payload ) || empty( $payload['title'] ) ) {
+            return '';
+        }
+
+        return sanitize_text_field( (string) $payload['title'] );
     }
 
     /**

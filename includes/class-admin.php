@@ -21,7 +21,77 @@ class RATTube_Admin {
         add_action( 'admin_menu', array( $this, 'register_settings_page' ) );
         add_action( 'admin_menu', array( $this, 'register_cpt_frontend_link' ) );
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_menu_link_script' ) );
+        add_action( 'add_meta_boxes', array( $this, 'register_rat_media_meta_boxes' ) );
         add_action( 'admin_init', array( $this, 'register_settings' ) );
+    }
+
+    /**
+     * Registers Rat Media admin meta boxes.
+     *
+     * @return void
+     */
+    public function register_rat_media_meta_boxes(): void {
+        add_meta_box(
+            'rattube_output_file',
+            __( 'RatTube Output', 'rattube' ),
+            array( $this, 'render_rat_media_output_meta_box' ),
+            'rat_media',
+            'side',
+            'high'
+        );
+    }
+
+    /**
+     * Renders the Rat Media output panel with player and download link.
+     *
+     * @param WP_Post $post Current Rat Media post.
+     *
+     * @return void
+     */
+    public function render_rat_media_output_meta_box( WP_Post $post ): void {
+        if ( ! current_user_can( 'edit_post', $post->ID ) ) {
+            echo '<p>' . esc_html__( 'You do not have permission to view output details.', 'rattube' ) . '</p>';
+            return;
+        }
+
+        $attachment_id = (int) get_post_meta( $post->ID, '_rattube_file_attachment_id', true );
+        $status        = (string) get_post_meta( $post->ID, '_rattube_status', true );
+        $format        = (string) get_post_meta( $post->ID, '_rattube_output_format', true );
+
+        if ( $attachment_id <= 0 ) {
+            echo '<p>' . esc_html__( 'No output file is attached yet.', 'rattube' ) . '</p>';
+            echo '<p><strong>' . esc_html__( 'Current status:', 'rattube' ) . '</strong> ' . esc_html( $status ?: __( 'submitted', 'rattube' ) ) . '</p>';
+            echo '<p><strong>' . esc_html__( 'Requested format:', 'rattube' ) . '</strong> ' . esc_html( $format ?: __( 'unknown', 'rattube' ) ) . '</p>';
+            echo '<p>' . esc_html__( 'The conversion worker must attach an output file before playback/download is available.', 'rattube' ) . '</p>';
+            return;
+        }
+
+        $file_url  = wp_get_attachment_url( $attachment_id );
+        $file_mime = (string) get_post_mime_type( $attachment_id );
+        $title     = get_the_title( $attachment_id );
+
+        if ( empty( $file_url ) ) {
+            echo '<p>' . esc_html__( 'An attachment ID exists, but the file URL could not be resolved.', 'rattube' ) . '</p>';
+            return;
+        }
+
+        echo '<p><strong>' . esc_html__( 'File:', 'rattube' ) . '</strong> ' . esc_html( $title ?: basename( (string) wp_parse_url( $file_url, PHP_URL_PATH ) ) ) . '</p>';
+        echo '<p><strong>' . esc_html__( 'MIME type:', 'rattube' ) . '</strong> ' . esc_html( $file_mime ?: __( 'unknown', 'rattube' ) ) . '</p>';
+
+        if ( 0 === strpos( $file_mime, 'audio/' ) ) {
+            ?>
+            <audio controls preload="none" style="width: 100%;">
+                <source src="<?php echo esc_url( $file_url ); ?>" type="<?php echo esc_attr( $file_mime ); ?>" />
+                <?php esc_html_e( 'Your browser does not support the audio element.', 'rattube' ); ?>
+            </audio>
+            <?php
+        }
+
+        printf(
+            '<p><a class="button button-primary" href="%1$s" download>%2$s</a></p>',
+            esc_url( $file_url ),
+            esc_html__( 'Download File', 'rattube' )
+        );
     }
 
     /**
