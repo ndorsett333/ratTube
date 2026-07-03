@@ -59,7 +59,8 @@ class RATTube_Post_Types {
                 'show_in_rest'       => true,
                 'query_var'          => true,
                 'rewrite'            => array( 'slug' => 'rat-media' ),
-                'capability_type'    => array( 'rat_media', 'rat_media_items' ),
+                'capability_type'    => 'rat_media',
+                'capabilities'       => rattube_get_rat_media_capabilities(),
                 'map_meta_cap'       => true,
                 'has_archive'        => true,
                 'hierarchical'       => false,
@@ -70,6 +71,8 @@ class RATTube_Post_Types {
         );
 
         $this->register_meta();
+
+        rattube_grant_rat_media_capabilities();
     }
 
     /**

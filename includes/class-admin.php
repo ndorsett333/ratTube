@@ -19,7 +19,45 @@ class RATTube_Admin {
      */
     public function register_hooks(): void {
         add_action( 'admin_menu', array( $this, 'register_settings_page' ) );
+        add_action( 'admin_menu', array( $this, 'register_cpt_frontend_link' ) );
         add_action( 'admin_init', array( $this, 'register_settings' ) );
+    }
+
+    /**
+     * Adds a submenu item under Rat Media that redirects to the frontend converter page.
+     *
+     * @return void
+     */
+    public function register_cpt_frontend_link(): void {
+        add_submenu_page(
+            'edit.php?post_type=rat_media',
+            __( 'Frontend Converter', 'rattube' ),
+            __( 'Frontend Converter', 'rattube' ),
+            'edit_rat_media_items',
+            'rattube-frontend-converter',
+            array( $this, 'redirect_to_converter_page' )
+        );
+    }
+
+    /**
+     * Redirects to the frontend converter page.
+     *
+     * @return void
+     */
+    public function redirect_to_converter_page(): void {
+        if ( ! current_user_can( 'edit_rat_media_items' ) ) {
+            wp_die( esc_html__( 'You do not have permission to access this page.', 'rattube' ) );
+        }
+
+        $page_id = (int) get_option( 'rattube_converter_page_id', 0 );
+        $url     = $page_id > 0 ? get_permalink( $page_id ) : home_url( '/' . rattube_get_converter_slug() . '/' );
+
+        if ( ! $url ) {
+            wp_die( esc_html__( 'The RatTube converter page could not be found.', 'rattube' ) );
+        }
+
+        wp_safe_redirect( $url );
+        exit;
     }
 
     /**

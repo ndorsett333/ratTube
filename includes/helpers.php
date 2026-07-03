@@ -62,6 +62,54 @@ function rattube_get_converter_shortcode_tag(): string {
 }
 
 /**
+ * Returns Rat Media capability map.
+ *
+ * @return array<string, string>
+ */
+function rattube_get_rat_media_capabilities(): array {
+    return array(
+        'edit_post'              => 'edit_rat_media',
+        'read_post'              => 'read_rat_media',
+        'delete_post'            => 'delete_rat_media',
+        'edit_posts'             => 'edit_rat_media_items',
+        'edit_others_posts'     => 'edit_others_rat_media_items',
+        'publish_posts'          => 'publish_rat_media_items',
+        'read_private_posts'    => 'read_private_rat_media_items',
+        'create_posts'          => 'edit_rat_media_items',
+    );
+}
+
+/**
+ * Returns all Rat Media primitive capabilities.
+ *
+ * @return array<int, string>
+ */
+function rattube_get_rat_media_capability_names(): array {
+    return array_values( rattube_get_rat_media_capabilities() );
+}
+
+/**
+ * Grants Rat Media capabilities to roles that should see and manage the CPT.
+ *
+ * @return void
+ */
+function rattube_grant_rat_media_capabilities(): void {
+    $capabilities = rattube_get_rat_media_capability_names();
+
+    foreach ( array( 'administrator', 'editor' ) as $role_name ) {
+        $role = get_role( $role_name );
+
+        if ( ! $role instanceof WP_Role ) {
+            continue;
+        }
+
+        foreach ( $capabilities as $capability ) {
+            $role->add_cap( $capability );
+        }
+    }
+}
+
+/**
  * Appends a simple admin log entry.
  *
  * @param string $message Log message.

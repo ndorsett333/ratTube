@@ -21,6 +21,8 @@ class RATTube_Activator {
         $post_types = new RATTube_Post_Types();
         $post_types->register();
 
+        rattube_grant_rat_media_capabilities();
+
         RATTube_Routes::ensure_converter_page();
 
         flush_rewrite_rules();
