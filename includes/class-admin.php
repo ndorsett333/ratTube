@@ -20,6 +20,7 @@ class RATTube_Admin {
     public function register_hooks(): void {
         add_action( 'admin_menu', array( $this, 'register_settings_page' ) );
         add_action( 'admin_menu', array( $this, 'register_cpt_frontend_link' ) );
+        add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_menu_link_script' ) );
         add_action( 'admin_init', array( $this, 'register_settings' ) );
     }
 
@@ -35,16 +36,16 @@ class RATTube_Admin {
             __( 'Frontend Converter', 'rattube' ),
             'edit_rat_media_items',
             'rattube-frontend-converter',
-            array( $this, 'redirect_to_converter_page' )
+            array( $this, 'render_frontend_converter_placeholder' )
         );
     }
 
     /**
-     * Redirects to the frontend converter page.
+     * Renders a placeholder page for direct-navigation fallback.
      *
      * @return void
      */
-    public function redirect_to_converter_page(): void {
+    public function render_frontend_converter_placeholder(): void {
         if ( ! current_user_can( 'edit_rat_media_items' ) ) {
             wp_die( esc_html__( 'You do not have permission to access this page.', 'rattube' ) );
         }
@@ -59,7 +60,7 @@ class RATTube_Admin {
         ?>
         <div class="wrap">
             <h1><?php esc_html_e( 'Frontend Converter', 'rattube' ); ?></h1>
-            <p><?php esc_html_e( 'Open the frontend converter page in a new tab.', 'rattube' ); ?></p>
+            <p><?php esc_html_e( 'This item opens the frontend converter in a new tab.', 'rattube' ); ?></p>
             <p>
                 <a class="button button-primary" href="<?php echo esc_url( $url ); ?>" target="_blank" rel="noopener noreferrer">
                     <?php esc_html_e( 'Open Frontend Converter', 'rattube' ); ?>
@@ -67,6 +68,53 @@ class RATTube_Admin {
             </p>
         </div>
         <?php
+    }
+
+    /**
+     * Enqueues the script that rewrites the submenu item to the frontend URL.
+     *
+     * @param string $hook_suffix Current admin hook suffix.
+     *
+     * @return void
+     */
+    public function enqueue_admin_menu_link_script( string $hook_suffix ): void {
+        if ( ! current_user_can( 'edit_rat_media_items' ) ) {
+            return;
+        }
+
+        $converter_url = $this->get_converter_page_url();
+        if ( empty( $converter_url ) ) {
+            return;
+        }
+
+        wp_enqueue_script( 'rattube-admin-menu-link', RATTUBE_PLUGIN_URL . 'assets/js/admin.js', array(), RATTUBE_VERSION, true );
+        wp_localize_script(
+            'rattube-admin-menu-link',
+            'rattubeAdminMenuLink',
+            array(
+                'converterUrl' => esc_url_raw( $converter_url ),
+                'submenuText'  => __( 'Frontend Converter', 'rattube' ),
+                'parentId'     => 'menu-posts-rat_media',
+            )
+        );
+    }
+
+    /**
+     * Gets the frontend converter page URL.
+     *
+     * @return string
+     */
+    private function get_converter_page_url(): string {
+        $page_id = (int) get_option( 'rattube_converter_page_id', 0 );
+
+        if ( $page_id > 0 ) {
+            $url = get_permalink( $page_id );
+            if ( ! empty( $url ) ) {
+                return $url;
+            }
+        }
+
+        return home_url( '/' . rattube_get_converter_slug() . '/' );
     }
 
     /**
