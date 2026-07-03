@@ -59,12 +59,13 @@ class RATTube_Admin {
         ?>
         <div class="wrap">
             <h1><?php esc_html_e( 'Frontend Converter', 'rattube' ); ?></h1>
-            <p><?php esc_html_e( 'Redirecting to the frontend converter page. If you are not redirected automatically, use the link below.', 'rattube' ); ?></p>
-            <p><a class="button button-primary" href="<?php echo esc_url( $url ); ?>"><?php esc_html_e( 'Open Frontend Converter', 'rattube' ); ?></a></p>
+            <p><?php esc_html_e( 'Open the frontend converter page in a new tab.', 'rattube' ); ?></p>
+            <p>
+                <a class="button button-primary" href="<?php echo esc_url( $url ); ?>" target="_blank" rel="noopener noreferrer">
+                    <?php esc_html_e( 'Open Frontend Converter', 'rattube' ); ?>
+                </a>
+            </p>
         </div>
-        <script>
-            window.location.href = <?php echo wp_json_encode( esc_url_raw( $url ) ); ?>;
-        </script>
         <?php
     }
 
