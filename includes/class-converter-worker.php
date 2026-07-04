@@ -96,9 +96,15 @@ class RATTube_Converter_Worker {
         update_post_meta( $post_id, '_rattube_queue_state', 'processing' );
         update_post_meta( $post_id, '_rattube_worker_message', '' );
 
-        $yt_dlp_command = $this->detect_yt_dlp_command();
-        if ( empty( $yt_dlp_command ) ) {
+        $yt_dlp_binary = $this->detect_yt_dlp_binary();
+        if ( empty( $yt_dlp_binary ) ) {
             $this->mark_failed( $post_id, __( 'yt-dlp was not found on the server.', 'rattube' ) );
+            return;
+        }
+
+        $ffmpeg_location = $this->detect_ffmpeg_location();
+        if ( empty( $ffmpeg_location ) ) {
+            $this->mark_failed( $post_id, __( 'ffmpeg was not found on the server.', 'rattube' ) );
             return;
         }
 
@@ -115,12 +121,22 @@ class RATTube_Converter_Worker {
         }
 
         $output_template = $temp_dir . '/' . $basename . '.%(ext)s';
-        $command         = sprintf(
-            '%1$s --no-playlist --extract-audio --audio-format mp3 --audio-quality 0 -o %2$s %3$s',
-            $yt_dlp_command,
+        $command_parts   = array(
+            escapeshellarg( $yt_dlp_binary ),
+            '--no-playlist',
+            '--extract-audio',
+            '--audio-format',
+            'mp3',
+            '--audio-quality',
+            '0',
+            '--ffmpeg-location',
+            escapeshellarg( $ffmpeg_location ),
+            '-o',
             escapeshellarg( $output_template ),
-            escapeshellarg( $source_url )
+            escapeshellarg( $source_url ),
         );
+
+        $command = implode( ' ', $command_parts );
 
         $result = $this->run_command( $command );
         if ( 0 !== $result['exit_code'] ) {
@@ -178,12 +194,36 @@ class RATTube_Converter_Worker {
      *
      * @return string
      */
-    private function detect_yt_dlp_command(): string {
+    private function detect_yt_dlp_binary(): string {
+        $local_path = rattube_get_local_tool_path( 'yt-dlp' );
+        if ( '' !== $local_path && is_file( $local_path ) && is_executable( $local_path ) ) {
+            return $local_path;
+        }
+
         foreach ( array( 'yt-dlp', 'youtube-dl' ) as $candidate ) {
             $check = $this->run_command( 'command -v ' . escapeshellarg( $candidate ) );
             if ( 0 === $check['exit_code'] && '' !== trim( $check['output'] ) ) {
-                return $candidate;
+                return trim( $check['output'] );
             }
+        }
+
+        return '';
+    }
+
+    /**
+     * Detects ffmpeg location path.
+     *
+     * @return string
+     */
+    private function detect_ffmpeg_location(): string {
+        $local_path = rattube_get_local_tool_path( 'ffmpeg' );
+        if ( '' !== $local_path && is_file( $local_path ) && is_executable( $local_path ) ) {
+            return dirname( $local_path );
+        }
+
+        $check = $this->run_command( 'command -v ffmpeg' );
+        if ( 0 === $check['exit_code'] && '' !== trim( $check['output'] ) ) {
+            return dirname( trim( $check['output'] ) );
         }
 
         return '';

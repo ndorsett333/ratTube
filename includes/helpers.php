@@ -152,3 +152,52 @@ function rattube_get_admin_logs(): array {
 
     return is_array( $logs ) ? $logs : array();
 }
+
+/**
+ * Gets RatTube tools base directory under uploads.
+ *
+ * @return string
+ */
+function rattube_get_tools_base_dir(): string {
+    $uploads = wp_upload_dir();
+
+    if ( ! empty( $uploads['error'] ) || empty( $uploads['basedir'] ) ) {
+        return '';
+    }
+
+    return trailingslashit( (string) $uploads['basedir'] ) . 'rattube-tools';
+}
+
+/**
+ * Gets RatTube tools binary directory.
+ *
+ * @return string
+ */
+function rattube_get_tools_bin_dir(): string {
+    $base_dir = rattube_get_tools_base_dir();
+
+    if ( '' === $base_dir ) {
+        return '';
+    }
+
+    return trailingslashit( $base_dir ) . 'bin';
+}
+
+/**
+ * Gets absolute local binary path for a tool name.
+ *
+ * @param string $tool_name Tool name.
+ *
+ * @return string
+ */
+function rattube_get_local_tool_path( string $tool_name ): string {
+    $tool_name = sanitize_file_name( $tool_name );
+    $bin_dir   = rattube_get_tools_bin_dir();
+
+    if ( '' === $bin_dir ) {
+        return '';
+    }
+
+    return trailingslashit( $bin_dir ) . $tool_name;
+}
+

@@ -55,6 +55,13 @@ class RATTube_Plugin {
     private RATTube_Converter_Worker $converter_worker;
 
     /**
+     * Tools component.
+     *
+     * @var RATTube_Tools
+     */
+    private RATTube_Tools $tools;
+
+    /**
      * Constructor.
      */
     public function __construct() {
@@ -64,6 +71,7 @@ class RATTube_Plugin {
         $this->admin      = new RATTube_Admin();
         $this->frontend   = new RATTube_Frontend();
         $this->converter_worker = new RATTube_Converter_Worker();
+        $this->tools      = new RATTube_Tools();
     }
 
     /**
@@ -80,6 +88,7 @@ class RATTube_Plugin {
         $this->admin->register_hooks();
         $this->frontend->register_hooks();
         $this->converter_worker->register_hooks();
+        $this->tools->register_hooks();
 
         update_option( 'rattube_version', RATTUBE_VERSION, false );
     }
