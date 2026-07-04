@@ -23,6 +23,41 @@ class RATTube_Admin {
         add_action( 'admin_enqueue_scripts', array( $this, 'enqueue_admin_menu_link_script' ) );
         add_action( 'add_meta_boxes', array( $this, 'register_rat_media_meta_boxes' ) );
         add_action( 'admin_init', array( $this, 'register_settings' ) );
+        add_filter( 'post_row_actions', array( $this, 'add_rat_media_view_row_action' ), 10, 2 );
+    }
+
+    /**
+     * Adds a View action to Rat Media rows.
+     *
+     * @param array<string, string> $actions Existing row actions.
+     * @param WP_Post               $post    Current post object.
+     *
+     * @return array<string, string>
+     */
+    public function add_rat_media_view_row_action( array $actions, WP_Post $post ): array {
+        if ( 'rat_media' !== $post->post_type || ! current_user_can( 'read_post', $post->ID ) ) {
+            return $actions;
+        }
+
+        $view_url = get_permalink( $post );
+
+        if ( empty( $view_url ) ) {
+            $view_url = add_query_arg(
+                array(
+                    'post_type' => 'rat_media',
+                    'p'         => $post->ID,
+                ),
+                home_url( '/' )
+            );
+        }
+
+        $actions['view'] = sprintf(
+            '<a href="%1$s" rel="bookmark" target="_blank">%2$s</a>',
+            esc_url( $view_url ),
+            esc_html__( 'View', 'rattube' )
+        );
+
+        return $actions;
     }
 
     /**

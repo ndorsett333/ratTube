@@ -20,6 +20,7 @@ class RATTube_Routes {
     public function register_hooks(): void {
         add_action( 'init', array( $this, 'register_shortcodes' ) );
         add_action( 'template_redirect', array( $this, 'protect_converter_page' ) );
+        add_action( 'template_redirect', array( $this, 'protect_rat_media_frontend' ) );
         add_action( 'admin_post_rattube_submit_converter', array( $this, 'handle_converter_submission' ) );
         add_action( 'admin_post_nopriv_rattube_submit_converter', array( $this, 'handle_converter_submission' ) );
     }
@@ -88,7 +89,7 @@ class RATTube_Routes {
             array(
                 'post_type'   => 'rat_media',
                 'post_title'  => sanitize_text_field( $resolved_name ),
-                'post_status' => 'draft',
+                'post_status' => 'publish',
                 'post_content'=> '',
             ),
             true
@@ -185,6 +186,21 @@ class RATTube_Routes {
         }
 
         wp_die( esc_html__( 'You do not have permission to access this page.', 'rattube' ), '', array( 'response' => 404 ) );
+    }
+
+    /**
+     * Blocks frontend access to Rat Media posts and archives.
+     *
+     * @return void
+     */
+    public function protect_rat_media_frontend(): void {
+        if ( is_admin() ) {
+            return;
+        }
+
+        if ( is_singular( 'rat_media' ) || is_post_type_archive( 'rat_media' ) ) {
+            wp_die( esc_html__( 'The requested content is not available.', 'rattube' ), '', array( 'response' => 404 ) );
+        }
     }
 
     /**

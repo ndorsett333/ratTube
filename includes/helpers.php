@@ -72,10 +72,17 @@ function rattube_get_rat_media_capabilities(): array {
         'read_post'              => 'read_rat_media',
         'delete_post'            => 'delete_rat_media',
         'edit_posts'             => 'edit_rat_media_items',
-        'edit_others_posts'     => 'edit_others_rat_media_items',
+        'edit_others_posts'      => 'edit_others_rat_media_items',
         'publish_posts'          => 'publish_rat_media_items',
-        'read_private_posts'    => 'read_private_rat_media_items',
-        'create_posts'          => 'edit_rat_media_items',
+        'read_private_posts'     => 'read_private_rat_media_items',
+        'read'                   => 'read',
+        'delete_posts'           => 'delete_rat_media_items',
+        'delete_private_posts'   => 'delete_private_rat_media_items',
+        'delete_published_posts' => 'delete_published_rat_media_items',
+        'delete_others_posts'    => 'delete_others_rat_media_items',
+        'edit_private_posts'     => 'edit_private_rat_media_items',
+        'edit_published_posts'   => 'edit_published_rat_media_items',
+        'create_posts'           => 'edit_rat_media_items',
     );
 }
 
