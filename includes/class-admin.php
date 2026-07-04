@@ -92,11 +92,15 @@ class RATTube_Admin {
         $attachment_id = (int) get_post_meta( $post->ID, '_rattube_file_attachment_id', true );
         $status        = (string) get_post_meta( $post->ID, '_rattube_status', true );
         $format        = (string) get_post_meta( $post->ID, '_rattube_output_format', true );
+        $worker_message = (string) get_post_meta( $post->ID, '_rattube_worker_message', true );
 
         if ( $attachment_id <= 0 ) {
             echo '<p>' . esc_html__( 'No output file is attached yet.', 'rattube' ) . '</p>';
             echo '<p><strong>' . esc_html__( 'Current status:', 'rattube' ) . '</strong> ' . esc_html( $status ?: __( 'submitted', 'rattube' ) ) . '</p>';
             echo '<p><strong>' . esc_html__( 'Requested format:', 'rattube' ) . '</strong> ' . esc_html( $format ?: __( 'unknown', 'rattube' ) ) . '</p>';
+            if ( '' !== $worker_message ) {
+                echo '<p><strong>' . esc_html__( 'Worker message:', 'rattube' ) . '</strong> ' . esc_html( $worker_message ) . '</p>';
+            }
             echo '<p>' . esc_html__( 'The conversion worker must attach an output file before playback/download is available.', 'rattube' ) . '</p>';
             return;
         }

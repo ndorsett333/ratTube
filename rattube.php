@@ -29,6 +29,7 @@ require_once RATTUBE_PLUGIN_DIR . 'includes/class-routes.php';
 require_once RATTUBE_PLUGIN_DIR . 'includes/class-assets.php';
 require_once RATTUBE_PLUGIN_DIR . 'includes/class-admin.php';
 require_once RATTUBE_PLUGIN_DIR . 'includes/class-frontend.php';
+require_once RATTUBE_PLUGIN_DIR . 'includes/class-converter-worker.php';
 require_once RATTUBE_PLUGIN_DIR . 'includes/class-plugin.php';
 
 register_activation_hook( __FILE__, array( 'RATTube_Activator', 'activate' ) );
