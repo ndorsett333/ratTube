@@ -201,3 +201,82 @@ function rattube_get_local_tool_path( string $tool_name ): string {
     return trailingslashit( $bin_dir ) . $tool_name;
 }
 
+/**
+ * Finds an executable path from common locations and PATH.
+ *
+ * @param array<int, string> $names Executable names or absolute paths.
+ *
+ * @return string
+ */
+function rattube_find_executable( array $names ): string {
+    $common_dirs = array(
+        '/usr/local/bin',
+        '/usr/bin',
+        '/bin',
+        '/opt/homebrew/bin',
+    );
+
+    $env_path = getenv( 'PATH' );
+    if ( is_string( $env_path ) && '' !== $env_path ) {
+        $common_dirs = array_merge( $common_dirs, explode( ':', $env_path ) );
+    }
+
+    $common_dirs = array_values( array_unique( array_filter( array_map( 'trim', $common_dirs ) ) ) );
+
+    foreach ( $names as $name ) {
+        $name = trim( (string) $name );
+        if ( '' === $name ) {
+            continue;
+        }
+
+        if ( str_contains( $name, '/' ) ) {
+            if ( is_file( $name ) && is_executable( $name ) ) {
+                return $name;
+            }
+            continue;
+        }
+
+        foreach ( $common_dirs as $dir ) {
+            $candidate = trailingslashit( $dir ) . $name;
+            if ( is_file( $candidate ) && is_executable( $candidate ) ) {
+                return $candidate;
+            }
+        }
+    }
+
+    return '';
+}
+
+/**
+ * Returns configured tool path overrides.
+ *
+ * @return array<string, string>
+ */
+function rattube_get_tool_path_overrides(): array {
+    $overrides = get_option( 'rattube_tool_overrides', array() );
+
+    if ( ! is_array( $overrides ) ) {
+        return array();
+    }
+
+    return array(
+        'yt_dlp_path' => isset( $overrides['yt_dlp_path'] ) ? trim( (string) $overrides['yt_dlp_path'] ) : '',
+        'ffmpeg_path' => isset( $overrides['ffmpeg_path'] ) ? trim( (string) $overrides['ffmpeg_path'] ) : '',
+    );
+}
+
+/**
+ * Returns one configured tool path override by key.
+ *
+ * @param string $key Override key.
+ *
+ * @return string
+ */
+function rattube_get_tool_path_override( string $key ): string {
+    $overrides = rattube_get_tool_path_overrides();
+
+    return isset( $overrides[ $key ] ) ? (string) $overrides[ $key ] : '';
+}
+
+
+

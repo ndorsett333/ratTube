@@ -121,8 +121,10 @@ class RATTube_Converter_Worker {
         }
 
         $output_template = $temp_dir . '/' . $basename . '.%(ext)s';
+        $yt_dlp_executable = $this->build_yt_dlp_executable_command( $yt_dlp_binary );
+
         $command_parts   = array(
-            escapeshellarg( $yt_dlp_binary ),
+            $yt_dlp_executable,
             '--no-playlist',
             '--extract-audio',
             '--audio-format',
@@ -195,16 +197,19 @@ class RATTube_Converter_Worker {
      * @return string
      */
     private function detect_yt_dlp_binary(): string {
+        $override_path = rattube_get_tool_path_override( 'yt_dlp_path' );
+        if ( '' !== $override_path && is_file( $override_path ) && is_executable( $override_path ) ) {
+            return $override_path;
+        }
+
         $local_path = rattube_get_local_tool_path( 'yt-dlp' );
         if ( '' !== $local_path && is_file( $local_path ) && is_executable( $local_path ) ) {
             return $local_path;
         }
 
-        foreach ( array( 'yt-dlp', 'youtube-dl' ) as $candidate ) {
-            $check = $this->run_command( 'command -v ' . escapeshellarg( $candidate ) );
-            if ( 0 === $check['exit_code'] && '' !== trim( $check['output'] ) ) {
-                return trim( $check['output'] );
-            }
+        $system_path = rattube_find_executable( array( 'yt-dlp', 'youtube-dl' ) );
+        if ( '' !== $system_path ) {
+            return $system_path;
         }
 
         return '';
@@ -216,17 +221,76 @@ class RATTube_Converter_Worker {
      * @return string
      */
     private function detect_ffmpeg_location(): string {
+        $override_path = rattube_get_tool_path_override( 'ffmpeg_path' );
+        if ( '' !== $override_path ) {
+            if ( is_dir( $override_path ) ) {
+                $candidate = trailingslashit( $override_path ) . 'ffmpeg';
+                if ( is_file( $candidate ) && is_executable( $candidate ) ) {
+                    return $override_path;
+                }
+            }
+
+            if ( is_file( $override_path ) && is_executable( $override_path ) ) {
+                return dirname( $override_path );
+            }
+        }
+
         $local_path = rattube_get_local_tool_path( 'ffmpeg' );
         if ( '' !== $local_path && is_file( $local_path ) && is_executable( $local_path ) ) {
             return dirname( $local_path );
         }
 
-        $check = $this->run_command( 'command -v ffmpeg' );
-        if ( 0 === $check['exit_code'] && '' !== trim( $check['output'] ) ) {
-            return dirname( trim( $check['output'] ) );
+        $system_path = rattube_find_executable( array( 'ffmpeg' ) );
+        if ( '' !== $system_path ) {
+            return dirname( $system_path );
         }
 
         return '';
+    }
+
+    /**
+     * Builds executable command string for yt-dlp.
+     *
+     * @param string $yt_dlp_binary Absolute yt-dlp path.
+     *
+     * @return string
+     */
+    private function build_yt_dlp_executable_command( string $yt_dlp_binary ): string {
+        if ( $this->is_python_script( $yt_dlp_binary ) ) {
+            $python = rattube_find_executable( array( 'python3', 'python' ) );
+            if ( '' !== $python ) {
+                return escapeshellarg( $python ) . ' ' . escapeshellarg( $yt_dlp_binary );
+            }
+        }
+
+        return escapeshellarg( $yt_dlp_binary );
+    }
+
+    /**
+     * Determines whether a file is a Python script.
+     *
+     * @param string $file_path Absolute file path.
+     *
+     * @return bool
+     */
+    private function is_python_script( string $file_path ): bool {
+        if ( ! is_file( $file_path ) || ! is_readable( $file_path ) ) {
+            return false;
+        }
+
+        $handle = @fopen( $file_path, 'rb' );
+        if ( false === $handle ) {
+            return false;
+        }
+
+        $first_line = fgets( $handle );
+        fclose( $handle );
+
+        if ( false === $first_line ) {
+            return false;
+        }
+
+        return ( false !== stripos( $first_line, 'python' ) );
     }
 
     /**

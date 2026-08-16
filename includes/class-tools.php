@@ -22,6 +22,7 @@ class RATTube_Tools {
         add_action( 'admin_post_rattube_install_yt_dlp', array( $this, 'handle_install_yt_dlp' ) );
         add_action( 'admin_post_rattube_install_ffmpeg', array( $this, 'handle_install_ffmpeg' ) );
         add_action( 'admin_post_rattube_run_conversion_test', array( $this, 'handle_conversion_test' ) );
+        add_action( 'admin_post_rattube_save_tool_paths', array( $this, 'handle_save_tool_paths' ) );
     }
 
     /**
@@ -53,6 +54,7 @@ class RATTube_Tools {
         $notice_code = isset( $_GET['rattube_tools_notice'] ) ? sanitize_key( wp_unslash( $_GET['rattube_tools_notice'] ) ) : '';
         $notice_msg  = isset( $_GET['rattube_tools_message'] ) ? sanitize_text_field( rawurldecode( (string) wp_unslash( $_GET['rattube_tools_message'] ) ) ) : '';
         $diagnostics = $this->collect_diagnostics();
+        $overrides   = rattube_get_tool_path_overrides();
         ?>
         <div class="wrap">
             <h1><?php esc_html_e( 'RatTube Tools', 'rattube' ); ?></h1>
@@ -81,6 +83,29 @@ class RATTube_Tools {
                 <input type="hidden" name="action" value="rattube_run_conversion_test" />
                 <?php wp_nonce_field( 'rattube_run_conversion_test', 'rattube_nonce' ); ?>
                 <?php submit_button( __( 'One-Click Conversion Test', 'rattube' ), 'primary', 'submit', false ); ?>
+            </form>
+
+            <hr />
+            <h2><?php esc_html_e( 'Manual Tool Paths', 'rattube' ); ?></h2>
+            <p><?php esc_html_e( 'Optional overrides. If set and executable, RatTube uses these first, then plugin-installed binaries, then system binaries.', 'rattube' ); ?></p>
+            <form method="post" action="<?php echo esc_url( admin_url( 'admin-post.php' ) ); ?>" style="max-width: 980px;">
+                <input type="hidden" name="action" value="rattube_save_tool_paths" />
+                <?php wp_nonce_field( 'rattube_save_tool_paths', 'rattube_nonce' ); ?>
+                <table class="form-table" role="presentation">
+                    <tr>
+                        <th scope="row"><label for="rattube_yt_dlp_path"><?php esc_html_e( 'yt-dlp binary path', 'rattube' ); ?></label></th>
+                        <td>
+                            <input type="text" class="regular-text code" id="rattube_yt_dlp_path" name="rattube_yt_dlp_path" value="<?php echo esc_attr( $overrides['yt_dlp_path'] ?? '' ); ?>" placeholder="/usr/local/bin/yt-dlp" />
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><label for="rattube_ffmpeg_path"><?php esc_html_e( 'ffmpeg binary path or directory', 'rattube' ); ?></label></th>
+                        <td>
+                            <input type="text" class="regular-text code" id="rattube_ffmpeg_path" name="rattube_ffmpeg_path" value="<?php echo esc_attr( $overrides['ffmpeg_path'] ?? '' ); ?>" placeholder="/usr/local/bin/ffmpeg or /usr/local/bin" />
+                        </td>
+                    </tr>
+                </table>
+                <?php submit_button( __( 'Save Tool Paths', 'rattube' ), 'secondary', 'submit', false ); ?>
             </form>
 
             <hr />
@@ -155,6 +180,18 @@ class RATTube_Tools {
             $this->redirect_with_tools_notice( 'error', sprintf( __( 'ffmpeg download failed: %s', 'rattube' ), $downloaded_file->get_error_message() ) );
         }
 
+        $tar_path = rattube_find_executable( array( 'tar' ) );
+        if ( '' === $tar_path ) {
+            @unlink( $downloaded_file );
+            $this->redirect_with_tools_notice( 'error', __( 'ffmpeg extraction failed: tar is unavailable in this PHP environment. Install ffmpeg manually for Local, or expose tar to PHP PATH.', 'rattube' ) );
+        }
+
+        $xz_path = rattube_find_executable( array( 'xz' ) );
+        if ( '' === $xz_path ) {
+            @unlink( $downloaded_file );
+            $this->redirect_with_tools_notice( 'error', __( 'ffmpeg extraction failed: xz is unavailable in this PHP environment. Set manual ffmpeg path on this page, or install xz for automated extraction.', 'rattube' ) );
+        }
+
         $tmp_extract_dir = trailingslashit( rattube_get_tools_base_dir() ) . 'tmp-extract';
         if ( ! wp_mkdir_p( $tmp_extract_dir ) ) {
             @unlink( $downloaded_file );
@@ -162,9 +199,10 @@ class RATTube_Tools {
         }
 
         $extract_command = sprintf(
-            'tar -xJf %1$s -C %2$s',
+            '%3$s -xJf %1$s -C %2$s',
             escapeshellarg( $downloaded_file ),
-            escapeshellarg( $tmp_extract_dir )
+            escapeshellarg( $tmp_extract_dir ),
+            escapeshellarg( $tar_path )
         );
         $extract_result = $this->run_command( $extract_command );
         @unlink( $downloaded_file );
@@ -252,6 +290,51 @@ class RATTube_Tools {
     }
 
     /**
+     * Saves manual tool path overrides.
+     *
+     * @return void
+     */
+    public function handle_save_tool_paths(): void {
+        $this->authorize_action( 'rattube_save_tool_paths' );
+
+        $yt_dlp_path = isset( $_POST['rattube_yt_dlp_path'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['rattube_yt_dlp_path'] ) ) ) : '';
+        $ffmpeg_path = isset( $_POST['rattube_ffmpeg_path'] ) ? trim( sanitize_text_field( wp_unslash( $_POST['rattube_ffmpeg_path'] ) ) ) : '';
+
+        if ( '' !== $yt_dlp_path && ( ! is_file( $yt_dlp_path ) || ! is_executable( $yt_dlp_path ) ) ) {
+            $this->redirect_with_tools_notice( 'error', __( 'yt-dlp override path is not an executable file.', 'rattube' ) );
+        }
+
+        if ( '' !== $ffmpeg_path ) {
+            $ffmpeg_valid = false;
+            if ( is_file( $ffmpeg_path ) && is_executable( $ffmpeg_path ) ) {
+                $ffmpeg_valid = true;
+            }
+
+            if ( is_dir( $ffmpeg_path ) ) {
+                $candidate = trailingslashit( $ffmpeg_path ) . 'ffmpeg';
+                if ( is_file( $candidate ) && is_executable( $candidate ) ) {
+                    $ffmpeg_valid = true;
+                }
+            }
+
+            if ( ! $ffmpeg_valid ) {
+                $this->redirect_with_tools_notice( 'error', __( 'ffmpeg override must be an executable file or a directory containing ffmpeg.', 'rattube' ) );
+            }
+        }
+
+        update_option(
+            'rattube_tool_overrides',
+            array(
+                'yt_dlp_path' => $yt_dlp_path,
+                'ffmpeg_path' => $ffmpeg_path,
+            ),
+            false
+        );
+
+        $this->redirect_with_tools_notice( 'success', __( 'Tool paths saved.', 'rattube' ) );
+    }
+
+    /**
      * Collects diagnostic information for display.
      *
      * @return array<int, array{label:string,value:string}>
@@ -262,6 +345,10 @@ class RATTube_Tools {
         $bin_dir             = rattube_get_tools_bin_dir();
         $local_yt_dlp        = rattube_get_local_tool_path( 'yt-dlp' );
         $local_ffmpeg        = rattube_get_local_tool_path( 'ffmpeg' );
+        $override_yt_dlp     = rattube_get_tool_path_override( 'yt_dlp_path' );
+        $override_ffmpeg     = rattube_get_tool_path_override( 'ffmpeg_path' );
+        $effective_yt_dlp    = $this->resolve_effective_yt_dlp();
+        $effective_ffmpeg    = $this->resolve_effective_ffmpeg();
         $yt_dlp_version      = $this->read_binary_version( $local_yt_dlp, 'yt-dlp --version' );
         $ffmpeg_version      = $this->read_binary_version( $local_ffmpeg, 'ffmpeg -version | head -n 1' );
         $last_log            = '';
@@ -290,8 +377,24 @@ class RATTube_Tools {
                 'value' => ( '' !== $local_yt_dlp && is_file( $local_yt_dlp ) ) ? $local_yt_dlp : __( 'Not installed', 'rattube' ),
             ),
             array(
+                'label' => __( 'Manual yt-dlp override', 'rattube' ),
+                'value' => '' !== $override_yt_dlp ? $override_yt_dlp : __( 'Not set', 'rattube' ),
+            ),
+            array(
                 'label' => __( 'Local ffmpeg binary', 'rattube' ),
                 'value' => ( '' !== $local_ffmpeg && is_file( $local_ffmpeg ) ) ? $local_ffmpeg : __( 'Not installed', 'rattube' ),
+            ),
+            array(
+                'label' => __( 'Manual ffmpeg override', 'rattube' ),
+                'value' => '' !== $override_ffmpeg ? $override_ffmpeg : __( 'Not set', 'rattube' ),
+            ),
+            array(
+                'label' => __( 'Effective yt-dlp path', 'rattube' ),
+                'value' => '' !== $effective_yt_dlp ? $effective_yt_dlp : __( 'Not resolved', 'rattube' ),
+            ),
+            array(
+                'label' => __( 'Effective ffmpeg path', 'rattube' ),
+                'value' => '' !== $effective_ffmpeg ? $effective_ffmpeg : __( 'Not resolved', 'rattube' ),
             ),
             array(
                 'label' => __( 'yt-dlp version', 'rattube' ),
@@ -359,6 +462,13 @@ class RATTube_Tools {
     private function read_binary_version( string $local_binary, string $system_cmd ): string {
         if ( '' !== $local_binary && is_file( $local_binary ) && is_executable( $local_binary ) ) {
             $cmd = escapeshellarg( $local_binary ) . ' --version';
+            if ( $this->is_python_script( $local_binary ) ) {
+                $python = rattube_find_executable( array( 'python3', 'python' ) );
+                if ( '' !== $python ) {
+                    $cmd = escapeshellarg( $python ) . ' ' . escapeshellarg( $local_binary ) . ' --version';
+                }
+            }
+
             $out = $this->run_command( $cmd );
             if ( 0 === $out['exit_code'] ) {
                 return strtok( trim( $out['output'] ), "\n" ) ?: __( 'Detected', 'rattube' );
@@ -371,6 +481,53 @@ class RATTube_Tools {
         }
 
         return __( 'Not detected', 'rattube' );
+    }
+
+    /**
+     * Resolves effective yt-dlp path in worker order.
+     *
+     * @return string
+     */
+    private function resolve_effective_yt_dlp(): string {
+        $override = rattube_get_tool_path_override( 'yt_dlp_path' );
+        if ( '' !== $override && is_file( $override ) && is_executable( $override ) ) {
+            return $override;
+        }
+
+        $local = rattube_get_local_tool_path( 'yt-dlp' );
+        if ( '' !== $local && is_file( $local ) && is_executable( $local ) ) {
+            return $local;
+        }
+
+        return rattube_find_executable( array( 'yt-dlp', 'youtube-dl' ) );
+    }
+
+    /**
+     * Resolves effective ffmpeg path in worker order.
+     *
+     * @return string
+     */
+    private function resolve_effective_ffmpeg(): string {
+        $override = rattube_get_tool_path_override( 'ffmpeg_path' );
+        if ( '' !== $override ) {
+            if ( is_file( $override ) && is_executable( $override ) ) {
+                return $override;
+            }
+
+            if ( is_dir( $override ) ) {
+                $candidate = trailingslashit( $override ) . 'ffmpeg';
+                if ( is_file( $candidate ) && is_executable( $candidate ) ) {
+                    return $candidate;
+                }
+            }
+        }
+
+        $local = rattube_get_local_tool_path( 'ffmpeg' );
+        if ( '' !== $local && is_file( $local ) && is_executable( $local ) ) {
+            return $local;
+        }
+
+        return rattube_find_executable( array( 'ffmpeg' ) );
     }
 
     /**
@@ -448,5 +605,32 @@ class RATTube_Tools {
         }
 
         @rmdir( $dir );
+    }
+
+    /**
+     * Determines whether a file is a Python script.
+     *
+     * @param string $file_path Absolute file path.
+     *
+     * @return bool
+     */
+    private function is_python_script( string $file_path ): bool {
+        if ( ! is_file( $file_path ) || ! is_readable( $file_path ) ) {
+            return false;
+        }
+
+        $handle = @fopen( $file_path, 'rb' );
+        if ( false === $handle ) {
+            return false;
+        }
+
+        $first_line = fgets( $handle );
+        fclose( $handle );
+
+        if ( false === $first_line ) {
+            return false;
+        }
+
+        return false !== stripos( $first_line, 'python' );
     }
 }
