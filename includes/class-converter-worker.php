@@ -395,6 +395,7 @@ class RATTube_Converter_Worker {
         }
 
         require_once ABSPATH . 'wp-admin/includes/image.php';
+        require_once ABSPATH . 'wp-admin/includes/media.php';
 
         $metadata = wp_generate_attachment_metadata( $attachment_id, $file_path );
         if ( is_array( $metadata ) ) {
