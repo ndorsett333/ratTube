@@ -133,10 +133,16 @@ class RATTube_Converter_Worker {
             '0',
             '--ffmpeg-location',
             escapeshellarg( $ffmpeg_location ),
-            '-o',
-            escapeshellarg( $output_template ),
-            escapeshellarg( $source_url ),
         );
+
+        $js_runtime_args = $this->build_js_runtime_args();
+        if ( ! empty( $js_runtime_args ) ) {
+            $command_parts = array_merge( $command_parts, $js_runtime_args );
+        }
+
+        $command_parts[] = '-o';
+        $command_parts[] = escapeshellarg( $output_template );
+        $command_parts[] = escapeshellarg( $source_url );
 
         $command = implode( ' ', $command_parts );
 
@@ -246,6 +252,26 @@ class RATTube_Converter_Worker {
         }
 
         return '';
+    }
+
+    /**
+     * Builds --js-runtimes arguments so yt-dlp can solve YouTube's signature
+     * challenges without requiring deno (yt-dlp's only auto-detected runtime).
+     *
+     * @return array<int, string>
+     */
+    private function build_js_runtime_args(): array {
+        $deno = rattube_find_executable( array( 'deno' ) );
+        if ( '' !== $deno ) {
+            return array();
+        }
+
+        $node = rattube_find_executable( array( 'node', 'nodejs' ) );
+        if ( '' === $node ) {
+            return array();
+        }
+
+        return array( '--js-runtimes', escapeshellarg( 'node:' . $node ) );
     }
 
     /**
