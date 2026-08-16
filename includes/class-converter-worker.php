@@ -18,6 +18,17 @@ class RATTube_Converter_Worker {
     private const CRON_HOOK = 'rattube_process_submission_event';
 
     /**
+     * Max attempts for the yt-dlp download step, to absorb transient
+     * failures (e.g. YouTube rate limiting/anti-bot responses).
+     */
+    private const MAX_DOWNLOAD_ATTEMPTS = 3;
+
+    /**
+     * Seconds to wait between download retry attempts.
+     */
+    private const RETRY_DELAY_SECONDS = 5;
+
+    /**
      * Registers worker hooks.
      *
      * @return void
@@ -146,7 +157,7 @@ class RATTube_Converter_Worker {
 
         $command = implode( ' ', $command_parts );
 
-        $result = $this->run_command( $command );
+        $result = $this->run_command_with_retries( $command, self::MAX_DOWNLOAD_ATTEMPTS, self::RETRY_DELAY_SECONDS );
         if ( 0 !== $result['exit_code'] ) {
             $error = trim( $result['output'] );
             if ( '' === $error ) {
@@ -317,6 +328,38 @@ class RATTube_Converter_Worker {
         }
 
         return ( false !== stripos( $first_line, 'python' ) );
+    }
+
+    /**
+     * Runs a shell command, retrying on failure to absorb transient errors
+     * (e.g. YouTube rate limiting) rather than failing the whole submission
+     * on the first hiccup.
+     *
+     * @param string $command    Shell command.
+     * @param int    $attempts   Maximum attempts.
+     * @param int    $delay_secs Seconds to wait between attempts.
+     *
+     * @return array{exit_code:int,output:string}
+     */
+    private function run_command_with_retries( string $command, int $attempts, int $delay_secs ): array {
+        $result = array(
+            'exit_code' => 1,
+            'output'    => '',
+        );
+
+        for ( $attempt = 1; $attempt <= $attempts; $attempt++ ) {
+            $result = $this->run_command( $command );
+
+            if ( 0 === $result['exit_code'] ) {
+                return $result;
+            }
+
+            if ( $attempt < $attempts ) {
+                sleep( $delay_secs );
+            }
+        }
+
+        return $result;
     }
 
     /**

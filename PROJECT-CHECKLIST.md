@@ -29,8 +29,9 @@ Status snapshot based on the codebase as of 2026-08-16. Covers everything built 
 - [x] MP3 extraction via yt-dlp + ffmpeg (`proc_open`, array-form command, `escapeshellarg` on user-influenced values)
 - [x] Output moved into `uploads/rattube-outputs`, attached as a WP attachment with generated metadata
 - [x] Failure states captured in `_rattube_status` / `_rattube_worker_message`, logged via `rattube_add_admin_log()`
-- [x] yt-dlp invoked with an auto-detected `--js-runtimes` argument (node, falling back to deno) so YouTube's signature/PO-token challenge doesn't cause a 403 when deno isn't installed
+- [x] yt-dlp invoked with an auto-detected `--js-runtimes` argument (node, falling back to deno) — verified this does *not* reliably prevent YouTube 403s in the installed yt-dlp version (`node` shows as an unavailable JS Challenge Provider), but it's harmless to keep and may help other extractors/formats
 - [x] `wp-admin/includes/media.php` is loaded before `wp_generate_attachment_metadata()` — previously missing, which crashed the cron worker with a fatal error right after a successful download/move, leaving the post stuck at "processing" with no attachment
+- [x] yt-dlp download step retries up to 3 times (5s apart) before failing the submission — YouTube 403s observed here are intermittent rate-limiting/anti-bot responses, not deterministic failures, and a same-URL retry a short time later routinely succeeds
 
 ### Tools admin page (Rat Media → RatTube Tools)
 - [x] One-click install/update for yt-dlp (GitHub release) and ffmpeg (johnvansickle static build, Linux only)
@@ -67,7 +68,7 @@ Status snapshot based on the codebase as of 2026-08-16. Covers everything built 
 - [ ] Converted MP3s are normal WP attachments in `uploads/rattube-outputs` — their URLs are publicly guessable/accessible even though the `rat_media` post itself is blocked on the frontend. Decide whether that's acceptable or needs access-controlled delivery (e.g. signed URLs, auth-gated download endpoint)
 
 ### Reliability
-- [ ] No retry logic for transient failures (network blips, temporary yt-dlp errors)
+- [x] ~~No retry logic for transient failures~~ — yt-dlp download step now retries 3x with a 5s delay (see Done)
 - [ ] No timeout enforcement around long-running yt-dlp/ffmpeg `proc_open` calls
 - [ ] No locking against a post being reprocessed concurrently (e.g. resubmission while already queued/processing)
 - [ ] No cleanup/expiration policy for old files in `uploads/rattube-outputs` or old `rat_media` posts — storage will grow unbounded
